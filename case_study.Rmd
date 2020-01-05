@@ -1,0 +1,185 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+title: "R Notebook for EMOS. Case study:Brazilian Ecommerce"
+output: html_notebook
+---
+library(plyr)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+
+Ερώτηση:Να γράψετε κώδικα που να βρίσκει από πόσοι πελάτες της επιχείρησης έχουν δηλώσει τοποθεσία το campinas
+```{r}
+select(olist_customers_dataset, customer_city) %>%
+  filter(customer_city == "campinas") %>%
+  count()
+
+```
+
+Ερώτηση:Να βρείτε για το 2017 και ανά μήνα τον συνολικό αριθμό των παραγγελιών που παραδόθηκαν (delivered) σε φθίνουσα σειρά
+```{r}
+
+olist_orders_dataset$order_purchase_timestamp=ymd_hms(olist_orders_dataset$order_approved_at)
+olist_orders_dataset%>%
+mutate(y=year(order_approved_at),m=month(order_approved_at),d=day(order_approved_at))%>%
+  filter(y==2017,order_status=="delivered")%>%
+  group_by(m)%>%
+  count(sort=TRUE)
+
+```
+
+Ερώτηση:Να υπολογίσετε το συνολικό κόστος (αγορα+μεταφορικά) των προϊόντων που αγοράστηκαν από το rio de janeiro (dellivered)
+```{r}
+a <- select(olist_customers_dataset,customer_id, customer_city) %>%
+  filter(customer_city == "rio de janeiro")
+a2 <- select(olist_orders_dataset, customer_id, order_status, order_id) %>%
+  filter(order_status == "delivered")
+a3 <- merge(a2,a, by = "customer_id") %>%
+  select(order_id, customer_city)
+a4 <- select(olist_order_items_dataset, order_id, price, freight_value, )
+  a<- merge(a3, a4,)
+  a %>%
+    mutate(SINOLIKOKOSTOS = price + freight_value) 
+  
+```
+
+Ερώτηση:Να βρείτε τον τρόπο/τρόπους πληρωμής του πελάτη από το sao paulo που είχε τις μικρότερες από πλευράς κόστους αγορές
+```{r}
+b <- select(olist_customers_dataset,customer_id, customer_city) %>%
+  filter(customer_city == "sao paulo")
+b2 <- select(olist_orders_dataset, customer_id, order_status, order_id) %>%
+  filter(order_status == "delivered")
+b <- merge(b,b2, by = "customer_id") %>%
+  select(order_id) 
+b2 <- merge(b,olist_order_payments_dataset ) %>%
+  arrange(payment_value)
+```
+
+Ερώτηση:Να βρείτε σε ποιο μήνα του 2017 η δέκατη μέρα  είχε τις περισσότερες παραγγελίες (1 παραγγελία = κάθε διαφορετικός κωδικός της στήλης order_id του πίνακα orders)(approved_at) σε μία μέρα
+```{r}
+olist_orders_dataset$order_purchase_timestamp=ymd_hms(olist_orders_dataset$order_approved_at)
+olist_orders_dataset%>%
+mutate(y=year(order_approved_at),m=month(order_approved_at),d=day(order_approved_at))%>%
+  filter(y==2017,order_status=="delivered" , d==10)%>%
+  select(m,order_id) %>%
+  count(m, sort = TRUE) 
+```
+
+Ερώτηση:Να βρείτε σε ποιον μήνα πραγματοποιήθηκε η μικρότερη εισροή εσόδων για την επιχείρηση
+```{r}
+olist_orders_dataset$order_purchase_timestamp=ymd_hms(olist_orders_dataset$order_approved_at)
+c <-olist_orders_dataset%>%
+mutate(y=year(order_approved_at),m=month(order_approved_at),d=day(order_approved_at))%>%
+  filter(order_status=="delivered" ) %>%
+  select(order_id, d, m , y)
+  merge(c, olist_order_payments_dataset, by = "order_id")%>%
+    select(m, payment_value) %>%
+    group_by(m) %>%
+    summarise(payment_value = sum(payment_value)) %>%
+    arrange(payment_value)
+
+```
+
+Ερώτηση:Να εμφανίσετε την κατηγορία προϊόντος για κάθε ένα από τα προϊόντα που η κατάσταση παραγγελίας ορίστηκε ως μη διαθέσιμο
+```{r}
+d<- select(olist_orders_dataset, order_id, order_status)%>%
+  filter(order_status == "unavailable") %>%
+  select(order_id) 
+ d1 <- merge(d,olist_order_items_dataset) %>%
+  select(product_id)
+  merge(d1, olist_products_dataset) %>%
+    select(product_category_name)
+```
+
+Ερώτηση: Ποια ήταν η πόλη του πιο δημοφιλούς(αριθμός πωλήσεων) seller;
+```{r}
+e <- select(olist_order_items_dataset, seller_id)%>%
+  group_by(seller_id)%>%
+  count()%>%
+  arrange(desc(n))
+ emax <- max(e$n)
+e<- filter(e, n == emax) %>%
+   select(seller_id)
+merge(e, olist_sellers_dataset) %>%
+  select(seller_city)
+```
+
+Ερώτηση:Να βρείτε τα προϊόντα που είχαν περισσότερες από 2 φωτογραφίες στην περιγραφή τους και να τα εμφανίσετε κατά φθίνουσα σειρά ως προς τον αριθμό παραγγελιών
+```{r}
+e <- olist_products_dataset%>%
+  filter(product_photos_qty == "2") 
+merge(e, olist_order_items_dataset, by = "product_id") %>%
+  group_by(product_category_name) %>%
+   count() %>%
+    arrange(n)
+
+```
+
+Ερώτηση:Να βρείτε την κατηγορία προϊόντων που είχε τον καλύτερο μέσο όρο αξιολογήσεων
+```{r}
+a <- select(olist_order_reviews_dataset,order_id, review_score)
+b <- merge(a, olist_order_items_dataset, by = "order_id")
+merge(b, olist_products_dataset, by = "product_id") %>%
+select(product_category_name, review_score ) %>%
+   group_by(product_category_name)%>%
+   summarise(review_score = sum(review_score))
+
+............................
+
+
+
+
+
+
+
+```
+
+Ερώτηση: Να υπολογίσετε το μηνιαίο έσοδο αγορών της κατηγορίας informatica_acessorios για το 2017
+```{r}
+olist_orders_dataset$order_purchase_timestamp=ymd_hms(olist_orders_dataset$order_approved_at)
+b<- olist_orders_dataset%>%
+mutate(y=year(order_approved_at),m=month(order_approved_at),d=day(order_approved_at))%>%
+  filter(y==2017,order_status=="delivered")%>%
+  select(order_id, m)
+b1 <- merge(b, olist_order_items_dataset)
+a <- olist_products_dataset%>%
+  filter(product_category_name == "informatica_acessorios")
+merge(a, b1, by = "product_id") %>%
+  select(m , price)%>%
+  group_by(m)%>%
+  summarise(MonthlyRevenue = sum(price))
+
+  
+```
+
+Ερώτηση:Να βρείτε σε ποια κατηγορία προϊόντος αγοράζουν περισσότερο με την χρήση του τρόπου credit card στο sao paulo
+```{r}
+a <- olist_order_payments_dataset%>%
+  filter(payment_type == "credit_card")%>%
+  select(order_id)
+b <- merge(a, olist_order_items_dataset)%>%
+  select(product_id, order_id)
+merge(b, olist_products_dataset, by = "product_id")%>%
+  select(product_id, product_category_name)%>%
+  group_by(product_category_name)%>%
+  count()%>%
+  arrange(desc(n))
+
+```
+
+
+Ερώτηση:
+1.Να δημιουργήσετε ένα shiny app στο οποίο να δέχεται ως είσοδο μια κατηγορία προϊόντος και να επιστρέφει το συνολικό έσοδο από παραγγελίες που έγιναν σε αυτή .
+2.Για μια κατηγορία από την παραπάνω είσοδο να δημιουργεί ένα scatterplot που στον άξονα τον χ να υπάρχουν οι μέρες και στον άξονα των χ το ημερήσιο έσοδο
+3.Να υπάρχει η δυνατότητα να δει κάποιος σαν animation για την περίοδο χρήσης για κάθε παραγγελία που έγινε τον τρόπο πληρωμής της.
+```{r tabsets, echo=FALSE}
+shinyAppDir(
+  system.file("examples/06_tabsets", package = "shiny"),
+  options = list(
+    width = "100%", height = 550
+  )
+)
+```
